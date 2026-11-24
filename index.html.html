@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>VISA 3D VAULT — API LIVE</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #06080f;
+      --glow-primary: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 10%, #141d3b 0%, var(--bg-dark) 78%);
+      color: #ffffff;
+      font-family: 'Space Grotesk', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 16px 80px;
+    }
+
+    .ambient-orb {
+      position: fixed;
+      width: 290px;
+      height: 290px;
+      border-radius: 50%;
+      filter: blur(95px);
+      opacity: 0.35;
+      z-index: 0;
+      pointer-events: none;
+      transition: background 0.5s ease;
+    }
+    .orb-1 { top: -70px; left: -60px; background: var(--glow-primary); }
+    .orb-2 { bottom: 30px; right: -60px; background: #6366f1; }
+
+    header {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    header h1 {
+      font-size: 1.35rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    header p {
+      font-size: 0.76rem;
+      color: #94a3b8;
+      margin-top: 3px;
+    }
+
+    /* Switch 3D de vistas */
+    .mode-switcher {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .mode-pill {
+      padding: 8px 16px;
+      border-radius: 25px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+    }
+
+    .mode-pill.active {
+      background: linear-gradient(135deg, rgba(59,130,246,0.35), rgba(99,102,241,0.35));
+      border-color: #60a5fa;
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    /* Escenario 3D */
+    .stage-3d {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 360px;
+      height: 212px;
+      perspective: 1400px;
+      margin: 6px 0 18px;
+    }
+
+    .card-pivot {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.75s cubic-bezier(0.23, 1, 0.32, 1);
+      cursor: pointer;
+    }
+
+    .card-pivot.is-flipped {
+      transform: rotateY(180deg);
+    }
+
+    .visa-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 22px;
+      backface-visibility: hidden;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow:
+        0 24px 48px -12px rgba(0,0,0,0.88),
+        inset 0 1px 1px rgba(255,255,255,0.35);
+      overflow: hidden;
+    }
+
+    .theme-obsidian {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #020617 100%);
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+    .theme-gold {
+      background: linear-gradient(135deg, #451a03 0%, #b45309 55%, #271003 100%);
+      border: 1px solid rgba(251,191,36,0.45);
+    }
+    .theme-cyber {
+      background: linear-gradient(135deg, #022c22 0%, #047857 55%, #064e3b 100%);
+      border: 1px solid rgba(52,211,153,0.4);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chip-3d {
+      width: 42px;
+      height: 30px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #fde68a, #d97706);
+    }
+
+    .visa-logo {
+      font-size: 1.65rem;
+      font-weight: 800;
+      font-style: italic;
+      letter-spacing: -1px;
+    }
+
+    .card-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      letter-spacing: 1.5px;
+      margin: 8px 0;
+    }
+
+    .card-bottom {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.78);
+    }
+
+    .card-bottom span.val {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .visa-back {
+      transform: rotateY(180deg);
+      padding: 20px 0;
+    }
+
+    .mag-strip {
+      width: 100%;
+      height: 40px;
+      background: #000;
+    }
+
+    .cvv-band {
+      margin: 16px 22px 0;
+      background: rgba(255,255,255,0.92);
+      color: #000;
+      padding: 8px 14px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    .flip-hint {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      margin-bottom: 16px;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .deck-selector {
+      display: flex;
+      gap: 10px;
+      z-index: 2;
+      margin-bottom: 18px;
+    }
+
+    .orb-pill {
+      padding: 9px 15px;
+      border-radius: 25px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .orb-pill.active {
+      transform: translateY(-3px) scale(1.05);
+      background: rgba(59,130,246,0.28);
+      border-color: #60a5fa;
+      color: #fff;
+    }
+
+    .duration-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 100%;
+      max-width: 360px;
+      z-index: 2;
+    }
+
+    .time-pod {
+      background: linear-gradient(160deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 18px;
+      padding: 15px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.45);
+    }
+
+    .time-pod.selected {
+      transform: translateY(-5px) scale(1.03);
+      border-color: #38bdf8;
+      background: linear-gradient(160deg, rgba(56,189,248,0.26), rgba(15,23,42,0.7));
+    }
+
+    .time-pod .period {
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: block;
+    }
+
+    .time-pod .price {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      color: #38bdf8;
+      margin-top: 5px;
+      display: block;
+    }
+
+    /* Vista Mis Tarjetas Emitidas */
+    .my-cards-list {
+      width: 100%;
+      max-width: 360px;
+      z-index: 2;
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .rental-tile {
+      background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(15,23,42,0.85));
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 14px 28px rgba(0,0,0,0.55);
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .rental-tile:hover {
+      transform: translateY(-2px);
+      border-color: #38bdf8;
+    }
+
+    .tile-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .badge-active {
+      color: #34d399;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+    }
+
+    .badge-expired {
+      color: #f87171;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+    }
+
+    .tile-pan {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      margin: 10px 0 6px;
+      letter-spacing: 1px;
+    }
+
+    .tile-meta {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .result-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2,6,23,0.88);
+      backdrop-filter: blur(14px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 50;
+    }
+
+    .result-card {
+      background: linear-gradient(145deg, #0f172a, #1e293b);
+      border: 1px solid rgba(56,189,248,0.45);
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 340px;
+      text-align: center;
+    }
+
+    .secret-box {
+      background: rgba(0,0,0,0.45);
+      padding: 14px;
+      border-radius: 14px;
+      margin: 14px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.86rem;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient-orb orb-1" id="orb1"></div>
+  <div class="ambient-orb orb-2"></div>
+
+  <header>
+    <h1>VISA 3D VAULT</h1>
+    <p id="userGreeting">Emisión Automática VISA por Vigencia</p>
+  </header>
+
+  <div class="mode-switcher">
+    <div class="mode-pill active" id="tabRent" onclick="switchTab('rent')">ALQUILAR VISA</div>
+    <div class="mode-pill" id="tabMyCards" onclick="switchTab('mine')">MIS TARJETAS</div>
+  </div>
+
+  <!-- SECCIÓN ALQUILER -->
+  <div id="rentSection" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+    <div class="deck-selector" id="deckSelector"></div>
+
+    <div class="stage-3d" id="stage3d">
+      <div class="card-pivot" id="cardPivot">
+        <div class="visa-face theme-obsidian" id="cardFront">
+          <div class="card-top">
+            <div class="chip-3d"></div>
+            <div class="visa-logo">VISA</div>
+          </div>
+          <div class="card-number" id="cardNumber">4532 •••• •••• ••••</div>
+          <div class="card-bottom">
+            <div>Límite<span class="val" id="cardLimit">$500 USD</span></div>
+            <div>Vigencia<span class="val" id="cardDurationPreview">24 Horas</span></div>
+          </div>
+        </div>
+        <div class="visa-face visa-back theme-obsidian" id="cardBack">
+          <div class="mag-strip"></div>
+          <div class="cvv-band">
+            <span style="font-size:0.7rem; color:#475569;">CVV DINÁMICO</span>
+            <span id="cardCvv">AL EMITIR</span>
+          </div>
+          <div style="padding:16px 22px 0; font-size:0.68rem; color:rgba(255,255,255,0.65); text-align:center;">
+            Emitida vía API al confirmar el alquiler y congelada automáticamente al vencer.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flip-hint">Toca la tarjeta para girar 360° • Arrastra para inclinar en 3D</div>
+    <div class="duration-grid" id="durationGrid"></div>
+  </div>
+
+  <!-- SECCIÓN MIS TARJETAS -->
+  <div class="my-cards-list" id="myCardsList"></div>
+
+  <!-- MODAL DETALLE DE TARJETA EMITIDA -->
+  <div class="result-overlay" id="resultOverlay" onclick="this.style.display='none'">
+    <div class="result-card" onclick="event.stopPropagation()">
+      <h3 style="color:#38bdf8;" id="modalTitle">VISA EMITIDA</h3>
+      <p style="font-size:0.78rem; color:#94a3b8; margin-top:4px;" id="modalSubtitle"></p>
+      <div class="secret-box" id="modalBody"></div>
+      <p style="font-size:0.7rem; color:#64748b;">Toca fuera de este panel para cerrar</p>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ REEMPLAZA CON TU URL DE RENDER
+    const API_URL = 'https://visa-3d-backend.onrender.com';
+
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.ready();
+
+    const tgUser = tg.initDataUnsafe?.user || { id: 'demo_user', first_name: 'Invitado', username: 'demo' };
+    document.getElementById('userGreeting').innerText = `${tgUser.first_name} • Solo Red VISA`;
+
+    let plans = [
+      {
+        id: 'visa-01',
+        tier: 'VISA INFINITE BLACK',
+        shortName: 'BLACK',
+        balanceLimit: '$500 USD',
+        theme: 'obsidian',
+        durationOptions: [
+          { id: '24h', label: '24 Horas', price: 15 },
+          { id: '7d', label: '7 Días', price: 35 },
+          { id: '30d', label: '30 Días', price: 80 }
+        ]
+      },
+      {
+        id: 'visa-02',
+        tier: 'VISA PLATINUM GOLD',
+        shortName: 'GOLD',
+        balanceLimit: '$1,500 USD',
+        theme: 'gold',
+        durationOptions: [
+          { id: '24h', label: '24 Horas', price: 25 },
+          { id: '7d', label: '7 Días', price: 60 },
+          { id: '30d', label: '30 Días', price: 140 }
+        ]
+      },
+      {
+        id: 'visa-03',
+        tier: 'VISA SIGNATURE CYBER',
+        shortName: 'CYBER',
+        balanceLimit: '$250 USD',
+        theme: 'cyber',
+        durationOptions: [
+          { id: '24h', label: '24 Horas', price: 10 },
+          { id: '7d', label: '7 Días', price: 22 },
+          { id: '30d', label: '30 Días', price: 50 }
+        ]
+      }
+    ];
+
+    let selectedPlanIdx = 0;
+    let selectedDurIdx = 0;
+    let isFlipped = false;
+    let activeTab = 'rent';
+    let userRentals = [];
+
+    async function loadPlans() {
+      try {
+        const res = await fetch(`${API_URL}/api/plans`);
+        if (res.ok) {
+          plans = await res.json();
+          renderRentUI();
+        }
+      } catch (_) {}
+    }
+
+    async function loadMyCards() {
+      try {
+        const res = await fetch(`${API_URL}/api/my-cards/${tgUser.id}`);
+        if (res.ok) {
+          userRentals = await res.json();
+          renderMyCards();
+        }
+      } catch (_) {}
+    }
+
+    function renderRentUI() {
+      const plan = plans[selectedPlanIdx];
+      const dur = plan.durationOptions[selectedDurIdx];
+
+      document.getElementById('cardFront').className = `visa-face theme-${plan.theme}`;
+      document.getElementById('cardBack').className = `visa-face visa-back theme-${plan.theme}`;
+      document.getElementById('cardLimit').innerText = plan.balanceLimit;
+      document.getElementById('cardDurationPreview').innerText = dur.label;
+      document.getElementById('orb1').style.background =
+        plan.theme === 'gold' ? '#f59e0b' : plan.theme === 'cyber' ? '#10b981' : '#3b82f6';
+
+      document.getElementById('deckSelector').innerHTML = plans.map((p, i) => `
+        <div class="orb-pill ${i === selectedPlanIdx ? 'active' : ''}" onclick="pickPlan(${i})">
+          VISA ${p.shortName}
+        </div>
+      `).join('');
+
+      document.getElementById('durationGrid').innerHTML = plan.durationOptions.map((d, i) => `
+        <div class="time-pod ${i === selectedDurIdx ? 'selected' : ''}" onclick="pickDur(${i})">
+          <span class="period">${d.label}</span>
+          <span class="price">$${d.price}</span>
+        </div>
+      `).join('');
+
+      tg.MainButton.setText(`EMITIR VISA (${dur.label.toUpperCase()}) — $${dur.price}`);
+      tg.MainButton.color = '#2563eb';
+      tg.MainButton.textColor = '#ffffff';
+      tg.MainButton.show();
+    }
+
+    function renderMyCards() {
+      const container = document.getElementById('myCardsList');
+      if (!userRentals.length) {
+        container.innerHTML = `<div style="text-align:center; color:#94a3b8; font-size:0.82rem; padding:30px 10px;">Aún no has emitido tarjetas Visa en esta sesión.</div>`;
+        return;
+      }
+
+      container.innerHTML = userRentals.map((r, idx) => {
+        const remainingMs = new Date(r.expiresAt).getTime() - Date.now();
+        const isExpired = remainingMs <= 0 || r.status === 'EXPIRED';
+        const hoursLeft = Math.max(0, Math.floor(remainingMs / 3600000));
+        const minsLeft = Math.max(0, Math.floor((remainingMs % 3600000) / 60000));
+
+        return `
+          <div class="rental-tile" onclick="openRentalModal(${idx})">
+            <div class="tile-top">
+              <span>${r.tier}</span>
+              <span class="${isExpired ? 'badge-expired' : 'badge-active'}">${isExpired ? 'VENCIDA' : 'ACTIVA'}</span>
+            </div>
+            <div class="tile-pan">${r.cardDetails.number}</div>
+            <div class="tile-meta">
+              <span>Límite: ${r.balanceLimit}</span>
+              <span>${isExpired ? 'Congelada' : `Resta: ${hoursLeft}h ${minsLeft}m`}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openRentalModal(idx) {
+      const r = userRentals[idx];
+      document.getElementById('modalTitle').innerText = r.tier;
+      document.getElementById('modalSubtitle').innerText = `ID Alquiler: ${r.rentalId} • Vigencia: ${r.durationLabel}`;
+      document.getElementById('modalBody').innerHTML = `
+        PAN: <b>${r.cardDetails.number}</b><br>
+        EXP: <b>${r.cardDetails.expiry}</b> | CVV: <b>${r.cardDetails.cvv}</b><br>
+        LÍMITE: <b>${r.balanceLimit}</b><br>
+        VENCE: <br>${new Date(r.expiresAt).toLocaleString()}
+      `;
+      document.getElementById('resultOverlay').style.display = 'flex';
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      tg.HapticFeedback?.selectionChanged();
+      document.getElementById('tabRent').classList.toggle('active', tab === 'rent');
+      document.getElementById('tabMyCards').classList.toggle('active', tab === 'mine');
+      document.getElementById('rentSection').style.display = tab === 'rent' ? 'flex' : 'none';
+      document.getElementById('myCardsList').style.display = tab === 'mine' ? 'flex' : 'none';
+
+      if (tab === 'mine') {
+        tg.MainButton.hide();
+        loadMyCards();
+      } else {
+        renderRentUI();
+      }
+    }
+
+    function pickPlan(i) {
+      selectedPlanIdx = i;
+      isFlipped = false;
+      document.getElementById('cardPivot').classList.remove('is-flipped');
+      tg.HapticFeedback?.selectionChanged();
+      renderRentUI();
+    }
+
+    function pickDur(i) {
+      selectedDurIdx = i;
+      tg.HapticFeedback?.impactOccurred('light');
+      renderRentUI();
+    }
+
+    const cardPivot = document.getElementById('cardPivot');
+    cardPivot.addEventListener('click', () => {
+      isFlipped = !isFlipped;
+      cardPivot.classList.toggle('is-flipped', isFlipped);
+      tg.HapticFeedback?.impactOccurred('medium');
+    });
+
+    const stage = document.getElementById('stage3d');
+    stage.addEventListener('touchmove', (e) => {
+      const rect = stage.getBoundingClientRect();
+      const t = e.touches[0];
+      const x = (t.clientX - rect.left) / rect.width - 0.5;
+      const y = (t.clientY - rect.top) / rect.height - 0.5;
+      cardPivot.style.transition = 'none';
+      cardPivot.style.transform = `rotateY(${(isFlipped ? 180 : 0) + x * 35}deg) rotateX(${-y * 35}deg)`;
+    });
+
+    stage.addEventListener('touchend', () => {
+      cardPivot.style.transition = 'transform 0.75s cubic-bezier(0.23, 1, 0.32, 1)';
+      cardPivot.style.transform = isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
+    });
+
+    tg.MainButton.onClick(async () => {
+      if (activeTab !== 'rent') return;
+      const plan = plans[selectedPlanIdx];
+      const dur = plan.durationOptions[selectedDurIdx];
+
+      tg.MainButton.showProgress();
+      tg.HapticFeedback?.notificationOccurred('success');
+
+      try {
+        const res = await fetch(`${API_URL}/api/rent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cardId: plan.id,
+            durationId: dur.id,
+            telegramUserId: tgUser.id,
+            telegramName: `${tgUser.first_name} (@${tgUser.username || tgUser.id})`
+          })
+        });
+
+        const data = await res.json();
+        tg.MainButton.hideProgress();
+
+        if (data.success) {
+          userRentals.unshift(data.rental);
+          openRentalModal(0);
+        } else {
+          tg.showAlert(data.error || 'No se pudo emitir la tarjeta.');
+        }
+      } catch (_) {
+        tg.MainButton.hideProgress();
+        tg.showAlert('Error de conexión con Render.');
+      }
+    });
+
+    setInterval(() => {
+      if (activeTab === 'mine') renderMyCards();
+    }, 30000);
+
+    renderRentUI();
+    loadPlans();
+    loadMyCards();
+  </script>
+</body>
+</html>
